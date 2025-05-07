@@ -1,16 +1,20 @@
-import requests
-from bs4 import BeautifulSoup
-import time
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import telebot
 import json
 import os
+import re
 import logging
 from dotenv import load_dotenv
+import time
 
 # Load environment variables
 load_dotenv()
 
-# Configure logging
+# Logging
 try:
     import systemd.journal
     journal_handler = systemd.journal.JournalHandler()
@@ -25,21 +29,29 @@ except ImportError:
     )
 
 monitoring_titles = [
-    r"Тартюф",
-    r"Кайдашева сім'я",
-    r"Конотопська відьма",
-    r"Безталанна",
+    r"ТАРТЮФ",
+    r"КОНОТОПСЬКА ВІДЬМА",
+    r"БЕЗТАЛАННА",
+    r"КАЛІГУЛА",
+    r"ЛИМЕРІВНА",
+    r"ЗЕМЛЯ",
+    r"МАКБЕТ",
+    r"МАРІЯ СТЮАРТ",
+    r"КАССАНДРА"
+]
 
+#monitoring_titles = []
+#7-9 June
+monitoring_titles += [
+    r"БУНА",
+    r"INTERMEZZO",
+    r"КОМЕДІЯ НА РУЇНАХ",
+    r"АРЛЕЗІАНКА",
 ]
 
 token = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_GROUP_ID = int(os.getenv("TELEGRAM_GROUP_ID"))
 bot = telebot.TeleBot(token)
-
-session = requests.Session()
-session.headers.update({
-    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36',
-})
 
 db_file = "event_tickets_db.json"
 
@@ -55,18 +67,23 @@ def save_db(db):
 
 event_tickets_db = load_db()
 
+# Setup selenium
+chrome_options = Options()
+chrome_options.add_argument("--headless=new")
+chrome_options.add_argument("--disable-gpu")
+chrome_options.add_argument("--no-sandbox")
+chrome_options.add_argument("--window-size=1920,1080")
+
+driver = webdriver.Chrome(options=chrome_options)
+
 def get_max_pages():
-    url = 'https://sales.ft.org.ua/events'
-    response = session.get(url)
-    if response.status_code != 200:
-        logging.error(f"Помилка завантаження сторінки: {url} (Статус: {response.status_code})")
-        return 1
-    soup = BeautifulSoup(response.text, 'html.parser')
-    pagination_items = soup.find_all("li", class_="pagination__item")
-    if pagination_items:
-        last_page = pagination_items[-2].find("a")
-        if last_page:
-            return int(last_page.text.strip())
+    driver.get('https://sales.ft.org.ua/events')
+    try:
+        items = driver.find_elements(By.CLASS_NAME, 'pagination__item')
+        if len(items) >= 2:
+            return int(items[-2].text.strip())
+    except Exception as e:
+        logging.error(f"Помилка в get_max_pages: {e}")
     return 1
 
 def get_all_event_card():
@@ -74,16 +91,16 @@ def get_all_event_card():
     for page in range(1, get_max_pages() + 1):
         url = f'https://sales.ft.org.ua/events?page={page}'
         logging.info(f'Parsing page {page}')
-        response = session.get(url)
-        if response.status_code != 200:
-            logging.error(f"Помилка завантаження сторінки: {url} (Статус: {response.status_code})")
-            continue
-        soup = BeautifulSoup(response.text, 'html.parser')
-        for card in soup.find_all("a", class_="performanceCard"):
-            title = card.find("h3", class_="performanceCard__title").text.strip()
-            link = card["href"].strip()
-            cards_dict.setdefault(title, []).append(link)
-        time.sleep(0.4)
+        driver.get(url)
+        time.sleep(1)  # невелика затримка для завантаження сторінки
+        cards = driver.find_elements(By.CLASS_NAME, 'performanceCard')
+        for card in cards:
+            try:
+                title = card.find_element(By.CLASS_NAME, 'performanceCard__title').text.strip()
+                link = card.get_attribute('href').strip()
+                cards_dict.setdefault(title, []).append(link)
+            except Exception as e:
+                logging.warning(f"Помилка в читанні картки: {e}")
     return cards_dict
 
 def format_ticket_count(count):
@@ -98,29 +115,47 @@ def format_ticket_count(count):
 
 def check_tickets(event_link):
     logging.info(f'Checking tickets for {event_link}')
-    response = session.get(event_link)
-    if response.status_code != 200:
-        logging.error(f"Помилка завантаження сторінки події: {event_link} (Статус: {response.status_code})")
-        return 0, {}
-    soup = BeautifulSoup(response.text, "html.parser")
-    tickets = soup.find(class_='ticketSelection__wrapper')
-    if not tickets:
-        return 0, {}
-    all_tickets = tickets.find_all("rect", class_="tooltip-button")
-    busy_tickets = tickets.find_all("rect", class_="occupied tooltip-button")
-    busy_tickets_inclusive = tickets.find_all("rect", class_="occupied tooltip-button inclusive")
-    free_tickets = [
-        {
-            "price": int(ticket.get("title", "Unknown").split("Ціна: ")[-1].split()[0]),
-            "title": ticket.get("title", "Unknown")
-        }
-        for ticket in all_tickets if ticket not in busy_tickets + busy_tickets_inclusive and ticket.get('fill') != '#ADADAD'
-    ]
-    ticket_summary = {}
-    for ticket in free_tickets:
-        price = ticket["price"]
-        ticket_summary[price] = ticket_summary.get(price, 0) + 1
-    return len(free_tickets), ticket_summary
+    driver.get(event_link)
+    time.sleep(2)
+    date_time = "Дата невідома"
+
+    try:
+        breadcrumbs = driver.find_elements(By.CSS_SELECTOR, "ul.breadcrumbs__list li.breadcrumbs__item span[itemprop='name']")
+        for span in breadcrumbs:
+            possible_date = span.text.strip()
+            if re.search(r"\d{1,2} .* \d{4}", possible_date):
+                date_time = possible_date
+                break
+    except Exception as e:
+        logging.warning(f"Не вдалося знайти дату: {e}")
+
+    try:
+        wrapper = driver.find_element(By.CLASS_NAME, "ticketSelection__wrapper")
+        all_tickets = wrapper.find_elements(By.CSS_SELECTOR, "rect.tooltip-button")
+        busy = wrapper.find_elements(By.CSS_SELECTOR, "rect.occupied.tooltip-button")
+        busy_inclusive = wrapper.find_elements(By.CSS_SELECTOR, "rect.occupied.tooltip-button.inclusive")
+
+        busy_set = set(busy + busy_inclusive)
+
+        free_tickets = []
+        for ticket in all_tickets:
+            if ticket not in busy_set and ticket.get_attribute('fill') != '#ADADAD':
+                title = ticket.get_attribute('title') or "Unknown"
+                price_match = re.search(r"Ціна:\s*([\d,]+)", title)
+                if price_match:
+                    raw_price = price_match.group(1).replace(',', '')
+                    price = int(raw_price)
+                    free_tickets.append({"price": price, "title": title})
+
+        ticket_summary = {}
+        for ticket in free_tickets:
+            price = ticket["price"]
+            ticket_summary[price] = ticket_summary.get(price, 0) + 1
+
+        return len(free_tickets), ticket_summary, date_time
+    except Exception as e:
+        logging.warning(f"Не вдалося зчитати квитки: {e}")
+        return 0, {}, date_time
 
 def send_message(text):
     bot.send_message(TELEGRAM_GROUP_ID, text, parse_mode='Markdown', disable_web_page_preview=True)
@@ -135,25 +170,28 @@ if __name__ == "__main__":
             continue
         logging.info(f'Checking available tickets for {title}')
         for link in all_cards[title]:
-            free_tickets, ticket_summary = check_tickets(link)
+            free_tickets, ticket_summary, date_time = check_tickets(link)
             logging.info(f'Found {free_tickets} tickets for {title} with {link}')
             if link in event_tickets_db:
                 previous_count = event_tickets_db[link]
                 if free_tickets > previous_count:
                     event_tickets_db[link] = free_tickets
                     ticket_details = "\n".join([f"- {format_ticket_count(count)} по {price} гривень" for price, count in sorted(ticket_summary.items())])
-                    message += f'\n[{title}]({link}) доступно місць {free_tickets}:\n{ticket_details}\n'
+                    message += f'\n[{title}]({link}) ({date_time}) доступно місць {free_tickets}:\n{ticket_details}\n'
                     new_tickets_found = True
                 elif free_tickets == 0 and previous_count > 0:
-                    message += f'\n[{title}]({link}) всі квитки розпродані.\n'
+                    message = f'[{title}]({link}) ({date_time}) всі квитки розпродані.\n'
                     event_tickets_db[link] = 0
                     new_tickets_found = True
             else:
                 event_tickets_db[link] = free_tickets
                 if free_tickets > 0:
                     ticket_details = "\n".join([f"- {format_ticket_count(count)} по {price} гривень" for price, count in sorted(ticket_summary.items())])
-                    message += f'\n[{title}]({link}) доступно місць {free_tickets}:\n{ticket_details}\n'
+                    message += f'\n[{title}]({link}) ({date_time}) доступно місць {free_tickets}:\n{ticket_details}\n'
                     new_tickets_found = True
     save_db(event_tickets_db)
     if new_tickets_found:
         send_message(text=message)
+
+    driver.quit()
+
