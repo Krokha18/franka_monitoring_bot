@@ -42,9 +42,9 @@ def save_titles(titles):
 
 monitoring_titles = load_titles()
 
-token = os.getenv("TELEGRAM_BOT_TOKEN")
-TELEGRAM_GROUP_ID = int(os.getenv("TELEGRAM_GROUP_ID"))
-bot = telebot.TeleBot(token)
+#token = os.getenv("TELEGRAM_BOT_TOKEN")
+#TELEGRAM_GROUP_ID = int(os.getenv("TELEGRAM_GROUP_ID"))
+#bot = telebot.TeleBot(token)
 
 db_file = "event_tickets_db.json"
 
@@ -151,7 +151,11 @@ def check_tickets(event_link):
         return 0, {}, date_time
 
 def send_message(text):
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    TELEGRAM_GROUP_ID = int(os.getenv("TELEGRAM_GROUP_ID"))
+    bot = telebot.TeleBot(token)
     bot.send_message(TELEGRAM_GROUP_ID, text, parse_mode='Markdown', disable_web_page_preview=True)
+    
 
 if __name__ == "__main__":
     all_cards = get_all_event_card()
