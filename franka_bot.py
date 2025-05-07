@@ -28,26 +28,19 @@ except ImportError:
         format='%(asctime)s - %(levelname)s - %(message)s'
     )
 
-monitoring_titles = [
-    r"ТАРТЮФ",
-    r"КОНОТОПСЬКА ВІДЬМА",
-    r"БЕЗТАЛАННА",
-    r"КАЛІГУЛА",
-    r"ЛИМЕРІВНА",
-    r"ЗЕМЛЯ",
-    r"МАКБЕТ",
-    r"МАРІЯ СТЮАРТ",
-    r"КАССАНДРА"
-]
+titles_file = "monitoring_titles.json"
 
-#monitoring_titles = []
-#7-9 June
-monitoring_titles += [
-    r"БУНА",
-    r"INTERMEZZO",
-    r"КОМЕДІЯ НА РУЇНАХ",
-    r"АРЛЕЗІАНКА",
-]
+def load_titles():
+    if os.path.exists(titles_file):
+        with open(titles_file, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return []
+
+def save_titles(titles):
+    with open(titles_file, "w", encoding="utf-8") as f:
+        json.dump(titles, f, ensure_ascii=False, indent=4)
+
+monitoring_titles = load_titles()
 
 token = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_GROUP_ID = int(os.getenv("TELEGRAM_GROUP_ID"))
