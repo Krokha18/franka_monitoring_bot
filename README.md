@@ -10,30 +10,45 @@ This bot monitors ticket availability for selected performances at the Franko Th
 - Integrated with `systemd` for deployment as a service.
 
 ## Requirements
-- Python 3.7+
+- Python 3.10+
 - Required Python packages:
-  - `requests`
-  - `beautifulsoup4`
+  - `selenium`
   - `telebot`
   - `systemd-python`
+  - `python-dotenv`
 
-Install dependencies with:
+Install APT-packages with:
+```bash
+sudo apt-get update
+sudo apt-get install -y \
+    wget curl unzip gnupg pkg-config libsystemd-dev build-essential \
+    chromium chromium-driver
+sudo rm -rf /var/lib/apt/lists/*
+```
+
+Activate virtual environment (optional):
+```bash
+python3.11 -m venv venv
+source venv/bin/activate
+```
+
+Install Python requirements with:
 ```bash
 pip install -r requirements.txt
 ```
 
 ## Configuration
 1. **Set the Telegram Bot Token and Chat ID:**
-   Replace the `token` and `CHAT_ID` values in the script with your bot token and Telegram chat ID.
+   Make sure that environment variables `TELEGRAM_BOT_TOKEN` and `TELEGRAM_GROUP_ID` are set in .env file.
 
 2. **Set Monitoring Titles:**
-   Add the titles of performances to the `monitoring_titles` list, for example:
-   ```python
-   monitoring_titles = [
-        r"Тартюф",
-        r"Кайдашева сім'я",
-        r"Конотопська відьма",
-
+   Add the titles (in UPPER style) of performances to the `monitoring_titles.json` list, for example:
+   ```json
+   [
+    "ТАРТЮФ",
+    "КОНОТОПСЬКА ВІДЬМА",
+    "БЕЗТАЛАННА",
+    "КАЛІГУЛА"
    ]
    ```
 
