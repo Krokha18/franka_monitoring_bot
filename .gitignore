@@ -3,3 +3,4 @@
 __pycache__/*
 venv/*
 event_tickets_db.json
+monitoring_titles.json
