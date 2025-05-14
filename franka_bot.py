@@ -2,6 +2,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.chrome.service import Service # Додано
 from selenium.webdriver.support import expected_conditions as EC
 import telebot
 import json
@@ -42,10 +43,6 @@ def save_titles(titles):
 
 monitoring_titles = load_titles()
 
-#token = os.getenv("TELEGRAM_BOT_TOKEN")
-#TELEGRAM_GROUP_ID = int(os.getenv("TELEGRAM_GROUP_ID"))
-#bot = telebot.TeleBot(token)
-
 db_file = "event_tickets_db.json"
 
 def load_db():
@@ -62,12 +59,14 @@ event_tickets_db = load_db()
 
 # Setup selenium
 chrome_options = Options()
+chrome_options.binary_location = "/usr/bin/chromium-browser"
 chrome_options.add_argument("--headless=new")
 chrome_options.add_argument("--disable-gpu")
 chrome_options.add_argument("--no-sandbox")
 chrome_options.add_argument("--window-size=1920,1080")
 
-driver = webdriver.Chrome(options=chrome_options)
+webdriver_service = Service('/usr/bin/chromedriver')
+driver = webdriver.Chrome(service = webdriver_service, options=chrome_options)
 
 def get_max_pages():
     driver.get('https://sales.ft.org.ua/events')
