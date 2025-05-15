@@ -78,12 +78,29 @@ To run the bot as a `systemd` service:
    [Install]
    WantedBy=multi-user.target
    ```
+   Also, create a file `/etc/systemd/system/franka_bot_commands.service` for bot commands handler:
+   ```ini
+   # /etc/systemd/system/bot_commands.service
+   [Unit]
+   Description=Telegram Bot Commands Listener
+   After=network.target
+
+   [Service]
+   ExecStart=/path/to/python3 /path/to/franka_monitoring_bot/bot_commands.py
+   WorkingDirectory=/path/to/franka_monitoring_bot
+   Restart=always
+   Environment="PYTHONUNBUFFERED=1"
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+   
 
 2. **Reload Systemd and Start the Service:**
    ```bash
    sudo systemctl daemon-reload
-   sudo systemctl enable franka_bot.service
-   sudo systemctl start franka_bot.service
+   sudo systemctl enable franka_bot.service franka_bot_commands.service
+   sudo systemctl start franka_bot.service franka_bot_commands.service
    ```
 
 3. **Monitor the Logs:**
