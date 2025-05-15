@@ -176,7 +176,7 @@ if __name__ == "__main__":
                     message += f'\n[{title}]({link}) ({date_time}) доступно місць {free_tickets}:\n{ticket_details}\n'
                     new_tickets_found = True
                 elif free_tickets == 0 and previous_count > 0:
-                    message = f'[{title}]({link}) ({date_time}) всі квитки розпродані.\n'
+                    message += f'[{title}]({link}) ({date_time}) всі квитки розпродані.\n'
                     event_tickets_db[link] = 0
                     new_tickets_found = True
             else:
