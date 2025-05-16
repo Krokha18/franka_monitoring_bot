@@ -1,72 +1,28 @@
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.chrome.service import Service # Додано
-from selenium.webdriver.support import expected_conditions as EC
 import telebot
 import json
 import os
 import re
 import logging
-from dotenv import load_dotenv
 import time
+from selenium.webdriver.common.by import By
 
-# Load environment variables
+
+from logger import init_logger
+init_logger()
+
+from dotenv import load_dotenv
 load_dotenv()
 
-# Logging
-try:
-    import systemd.journal
-    journal_handler = systemd.journal.JournalHandler()
-    journal_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-    logging.getLogger().addHandler(journal_handler)
-    logging.getLogger().setLevel(logging.INFO)
-except ImportError:
-    logging.basicConfig(
-        filename='bot.log',
-        level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s'
-    )
+from io_utils import load_titles, save_titles
+monitoring_titles = load_titles("monitoring_titles.json")
 
-titles_file = "monitoring_titles.json"
-
-def load_titles():
-    if os.path.exists(titles_file):
-        with open(titles_file, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return []
-
-def save_titles(titles):
-    with open(titles_file, "w", encoding="utf-8") as f:
-        json.dump(titles, f, ensure_ascii=False, indent=4)
-
-monitoring_titles = load_titles()
-
+from io_utils import load_db, save_db
 db_file = "event_tickets_db.json"
+event_tickets_db = load_db(db_file)
 
-def load_db():
-    if os.path.exists(db_file):
-        with open(db_file, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}
+from webdriver_utils import init_webdriver
+driver = init_webdriver()
 
-def save_db(db):
-    with open(db_file, "w", encoding="utf-8") as f:
-        json.dump(db, f, ensure_ascii=False, indent=4)
-
-event_tickets_db = load_db()
-
-# Setup selenium
-chrome_options = Options()
-chrome_options.binary_location = "/usr/bin/chromium-browser"
-chrome_options.add_argument("--headless=new")
-chrome_options.add_argument("--disable-gpu")
-chrome_options.add_argument("--no-sandbox")
-chrome_options.add_argument("--window-size=1920,1080")
-
-webdriver_service = Service('/usr/bin/chromedriver')
-driver = webdriver.Chrome(service = webdriver_service, options=chrome_options)
 
 def get_max_pages():
     driver.get('https://sales.ft.org.ua/events')
@@ -185,7 +141,7 @@ if __name__ == "__main__":
                     ticket_details = "\n".join([f"- {format_ticket_count(count)} по {price} гривень" for price, count in sorted(ticket_summary.items())])
                     message += f'\n[{title}]({link}) ({date_time}) доступно місць {free_tickets}:\n{ticket_details}\n'
                     new_tickets_found = True
-    save_db(event_tickets_db)
+    save_db(event_tickets_db, db_file)
     if new_tickets_found:
         send_message(text=message)
 
