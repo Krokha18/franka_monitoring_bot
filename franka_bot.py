@@ -1,5 +1,4 @@
 import telebot
-import json
 import os
 import re
 import logging
@@ -13,8 +12,9 @@ init_logger()
 from dotenv import load_dotenv
 load_dotenv()
 
-from io_utils import load_titles, save_titles
-monitoring_titles = load_titles("monitoring_titles.json")
+from io_utils import load_titles
+titles_file = "monitoring_titles.json"
+monitoring_titles = load_titles(titles_file)
 
 from io_utils import load_db, save_db
 db_file = "event_tickets_db.json"

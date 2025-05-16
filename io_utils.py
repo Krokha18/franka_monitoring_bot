@@ -8,7 +8,7 @@ def load_titles(titles_file):
     return []
 
 
-def save_titles(titles):
+def save_titles(titles, titles_file):
     with open(titles_file, "w", encoding="utf-8") as f:
         json.dump(titles, f, ensure_ascii=False, indent=4)
 
