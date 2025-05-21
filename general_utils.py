@@ -15,3 +15,13 @@ def normalize_month(month_str):
         "вересня": "09", "жовтня": "10", "листопада": "11", "грудня": "12"
     }
     return month_map.get(month_str.strip().lower(), "01")
+
+def normalize_weekday(weekday):
+    weekday_map = {"ПН":'Понеділок',
+                   "ВТ":'Вівторок',
+                   "СР":'Середа',
+                   "ЧТ":'Четвер',
+                   "ПТ":'П\'ятниця',
+                   "СБ":'Субота',
+                   "НД":'Неділя'}
+    return weekday_map.get(weekday, weekday)

@@ -11,7 +11,7 @@ import telebot
 from logger import init_logger
 from webdriver_utils import init_webdriver
 from io_utils import load_db, save_db
-from general_utils import normalize_month, format_ticket_count
+from general_utils import normalize_month, format_ticket_count, normalize_weekday
 
 # --- Ініціалізація ---
 init_logger()
@@ -107,8 +107,9 @@ def main():
             continue
 
         for _, row in filtered_events.iterrows():
-            link = row["link"]
+            link, weekday = row["link"], row['weekday']
             event_date_str = row["datetime"].strftime("%d.%m.%Y %H:%M")
+            event_date_str = f"{normalize_weekday(weekday)}, {event_date_str}"
 
             free_tickets, ticket_summary = check_tickets(link)
             logging.info(f'{free_tickets} tickets for "{title}" on {event_date_str}')
