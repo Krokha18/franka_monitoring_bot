@@ -10,7 +10,7 @@ import telebot
 
 from logger import init_logger
 from webdriver_utils import init_webdriver
-from io_utils import load_db, save_db
+from io_utils import load_csv_db, save_csv_db
 from general_utils import normalize_month, format_ticket_count, normalize_weekday
 
 # --- Ініціалізація ---
@@ -21,10 +21,8 @@ driver, wait = init_webdriver()
 # Шляхи до файлів
 event_file = os.getenv("EVENT_CARD_FILE", 'all_event_card.csv')
 monitoring_file = os.getenv("MONITORING_TITLES_FILE", "monitoring_titles.csv")
-db_file = "event_tickets_db.json"
 
 # Завантаження даних
-event_tickets_db = load_db(db_file)
 event_df = pd.read_csv(event_file)
 monitoring_df = pd.read_csv(monitoring_file, parse_dates=['min_date', 'max_date'])
 
@@ -85,53 +83,92 @@ def parse_event_date(row):
 # --- Основна логіка ---
 
 def main():
+    db_file = "event_tickets_db.csv"
+    event_tickets_db = load_csv_db(db_file)
+
+    # Інверсований індекс для швидкого доступу до записів по посиланню
+    db_index = {row["link"]: i for i, row in event_tickets_db.iterrows()}
+
     message = "З'явились нові квитки або зміни у наявності:"
     new_tickets_found = False
+    new_rows = []
 
+    # Парсимо дати подій
     event_df["datetime"] = event_df.apply(parse_event_date, axis=1)
 
-    for _, monitor in monitoring_df.iterrows():
-        title = monitor["title"].strip()
-        min_date = monitor.get("min_date", pd.NaT)
-        max_date = monitor.get("max_date", pd.NaT)
+    # Перебираємо всі події
+    for _, row in event_df.iterrows():
+        link = row["link"]
+        title = row["title"].strip()
+        weekday = row["weekday"]
+        event_datetime = row["datetime"]
 
-        filtered_events = event_df[event_df["title"].str.strip() == title]
-
-        if pd.notna(min_date):
-            filtered_events = filtered_events[filtered_events["datetime"] >= min_date]
-        if pd.notna(max_date):
-            filtered_events = filtered_events[filtered_events["datetime"] <= max_date]
-
-        if filtered_events.empty:
-            logging.info(f"Немає подій для '{title}' у вказаному діапазоні.")
+        # Перевірка, чи ця подія входить у monitoring_df
+        monitor_match = monitoring_df[monitoring_df["title"].str.strip() == title]
+        if monitor_match.empty:
             continue
 
-        for _, row in filtered_events.iterrows():
-            link, weekday = row["link"], row['weekday']
-            event_date_str = row["datetime"].strftime("%d.%m.%Y %H:%M")
-            event_date_str = f"{normalize_weekday(weekday)}, {event_date_str}"
+        # Фільтрація по даті для кожного монітора
+        keep = False
+        for _, monitor in monitor_match.iterrows():
+            min_date = monitor.get("min_date", pd.NaT)
+            max_date = monitor.get("max_date", pd.NaT)
 
-            free_tickets, ticket_summary = check_tickets(link)
-            logging.info(f'{free_tickets} tickets for "{title}" on {event_date_str}')
+            if pd.notna(min_date) and event_datetime < min_date:
+                continue
+            if pd.notna(max_date) and event_datetime > max_date:
+                continue
+            keep = True
+            break
 
-            prev_count = event_tickets_db.get(link, 0)
+        if not keep:
+            continue
 
-            if free_tickets > prev_count:
-                event_tickets_db[link] = free_tickets
-                ticket_details = "\n".join(
-                    [f"- {format_ticket_count(c)} по {p} грн" for p, c in sorted(ticket_summary.items())]
-                )
-                message += f'\n[{title}]({link}) *{event_date_str}* — доступно місць {free_tickets}:\n{ticket_details}\n'
-                new_tickets_found = True
-            elif free_tickets == 0 and prev_count > 0:
-                event_tickets_db[link] = 0
-                message += f'\n[{title}]({link}) *{event_date_str}* — всі квитки розпродані.\n'
-                new_tickets_found = True
+        event_date_str = event_datetime.strftime("%d.%m.%Y %H:%M")
+        event_date_str = f"{normalize_weekday(weekday)}, {event_date_str}"
 
-    save_db(event_tickets_db, db_file)
+        # Отримання квитків
+        free_tickets, ticket_summary = check_tickets(link)
+        logging.info(f'{free_tickets} tickets for "{title}" on {event_date_str}')
+
+        # Формування повідомлення
+        if free_tickets > 0:
+            ticket_details = "\n".join(
+                [f"- {format_ticket_count(c)} по {p} грн" for p, c in sorted(ticket_summary.items())]
+            )
+            title_part = f'[{title}]({link}) *{event_date_str}*'
+            tickets_msg = f'доступно місць {free_tickets}:\n{ticket_details}'
+            msg = f'{title_part} — {tickets_msg}\n'
+        else:
+            title_part = f'[{title}]({link}) *{event_date_str}*'
+            tickets_msg = 'всі квитки розпродані'
+            msg = f'{title_part} — {tickets_msg}.\n'
+
+        # Перевірка зміни
+        prev_count = event_tickets_db.loc[db_index[link], "free_tickets"] if link in db_index else -1
+        if free_tickets != prev_count:
+            new_tickets_found = True
+            message += "\n" + msg
+            logging.info(f"🔄 Зміна по {link}: {prev_count} → {free_tickets}")
+
+        # Додаємо запис
+        new_rows.append({
+            "link": link,
+            "free_tickets": free_tickets,
+            "last_update": datetime.now(),
+            "message": tickets_msg
+        })
+
+    # Оновлення всієї бази
+    if new_rows:
+        event_tickets_db = pd.DataFrame(new_rows)
+        save_csv_db(event_tickets_db, db_file)
+
     if new_tickets_found:
         send_message(message)
+
     driver.quit()
+
 
 if __name__ == "__main__":
     main()
