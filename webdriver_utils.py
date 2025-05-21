@@ -14,4 +14,6 @@ def init_webdriver():
     chrome_options.add_argument("--window-size=1920,1080")
 
     webdriver_service = Service('/usr/bin/chromedriver')
-    return webdriver.Chrome(service = webdriver_service, options=chrome_options)
+    driver = webdriver.Chrome(service=webdriver_service, options=chrome_options)
+    wait = WebDriverWait(driver, 10)
+    return driver, wait
