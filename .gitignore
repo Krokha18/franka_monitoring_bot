@@ -2,5 +2,7 @@
 .idea/*
 __pycache__/*
 venv/*
-event_tickets_db.json
-monitoring_titles.json
+*.json
+*.ipynb
+.ipynb_checkpoints/*
+*.csv
