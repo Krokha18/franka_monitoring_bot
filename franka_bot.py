@@ -83,7 +83,7 @@ def parse_event_date(row):
 # --- Основна логіка ---
 
 def main():
-    db_file = "event_tickets_db.csv"
+    db_file = os.getenv("EVENT_TICKETS_DB_FILE","event_tickets_db.csv")
     event_tickets_db = load_csv_db(db_file)
 
     # Інверсований індекс для швидкого доступу до записів по посиланню

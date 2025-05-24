@@ -3,3 +3,4 @@ pandas
 telebot
 systemd-python
 python-dotenv
+google-cloud-storage
