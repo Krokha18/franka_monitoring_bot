@@ -4,3 +4,7 @@ __pycache__/
 *.pyd
 *.db
 venv/
+*.ipynb
+*.csv
+.idea/
+.ipynb_checkpoints/
