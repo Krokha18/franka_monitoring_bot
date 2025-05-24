@@ -4,6 +4,8 @@ import pandas as pd
 from datetime import datetime
 from dotenv import load_dotenv
 
+from io_tools import load_titles_df, save_titles_df
+
 monitoring_file = os.getenv("MONITORING_TITLES_FILE", "monitoring_titles.csv")
 load_dotenv()
 bot = telebot.TeleBot(os.getenv("TELEGRAM_BOT_TOKEN"))
@@ -11,12 +13,11 @@ bot = telebot.TeleBot(os.getenv("TELEGRAM_BOT_TOKEN"))
 DATE_FMT = "%Y-%m-%d"
 
 def load_monitoring_df():
-    if os.path.exists(monitoring_file):
-        return pd.read_csv(monitoring_file, parse_dates=["min_date", "max_date"])
-    return pd.DataFrame(columns=["title", "min_date", "max_date"])
+    return load_titles_df(monitoring_file)
 
 def save_monitoring_df(df):
-    df.to_csv(monitoring_file, index=False)
+    save_titles_df(df, monitoring_file)
+
 
 @bot.message_handler(commands=["add"])
 def add_title(message):
@@ -84,6 +85,7 @@ def update_title(message):
     df.loc[df["title"] == title, "max_date"] = max_date
     save_monitoring_df(df)
     bot.reply_to(message, f"🔁 Оновлено: *{title}*\n🗓 {min_date.date() if pd.notna(min_date) else '---'} → {max_date.date() if pd.notna(max_date) else '---'}", parse_mode='Markdown')
+
 
 if __name__ == "__main__":
     print("Bot commands listener started...")

@@ -27,7 +27,7 @@ def get_max_pages():
     return 1
 
 
-def get_all_event_card(event_file=os.getenv("EVENt_CARD_FILE", 'all_event_card.csv')):
+def get_all_event_card(event_file=os.getenv("EVENT_CARD_FILE", 'all_event_card.csv')):
     results_list = []
     start_page, max_pages = 1, get_max_pages()
     df = None
