@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import datetime
 from dotenv import load_dotenv
 
-from io_tools import load_titles_df, save_titles_df
+from io_utils import load_titles_df, save_titles_df
 
 monitoring_file = os.getenv("MONITORING_TITLES_FILE", "monitoring_titles.csv")
 load_dotenv()
