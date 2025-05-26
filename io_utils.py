@@ -26,7 +26,7 @@ def load_titles_df(path: str) -> pd.DataFrame:
         if not blob.exists():
             return pd.DataFrame(columns=["title","min_date","max_date"])
         data = blob.download_as_bytes()
-        return pd.read_csv(BytesIO(data))
+        return pd.read_csv(BytesIO(data), parse_dates=['min_date',"max_date"])
     else:
         p = Path(path)
         if not p.exists():

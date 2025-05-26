@@ -59,8 +59,8 @@ def list_titles(message):
         return
     lines = []
     for _, row in df.iterrows():
-        min_d = row["min_date"].date().isoformat() if pd.notna(row["min_date"]) else "---"
-        max_d = row["max_date"].date().isoformat() if pd.notna(row["max_date"]) else "---"
+        min_d = pd.to_datetime(row["min_date"], format="ISO8601").date() if pd.notna(row["min_date"]) else "---"
+        max_d = pd.to_datetime(row["max_date"], format="ISO8601").date() if pd.notna(row["max_date"]) else "---"
         lines.append(f"- *{row['title']}* ({min_d} → {max_d})")
     bot.reply_to(message, "🎭 Вистави у моніторингу:\n" + "\n".join(lines), parse_mode="Markdown")
 
