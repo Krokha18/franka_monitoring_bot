@@ -6,3 +6,4 @@ venv/*
 *.ipynb
 .ipynb_checkpoints/*
 *.csv
+csv_files/*

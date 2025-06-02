@@ -1,0 +1,12 @@
+[Unit]
+Description=Telegram Bot Commands Listener
+After=network.target
+
+[Service]
+ExecStart=/path/to/python3 /path/to/franka_monitoring_bot/bot_commands.py
+WorkingDirectory=/path/to/franka_monitoring_bot
+Restart=always
+Environment="PYTHONUNBUFFERED=1"
+
+[Install]
+WantedBy=multi-user.target
