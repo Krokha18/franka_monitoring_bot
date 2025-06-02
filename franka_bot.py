@@ -136,13 +136,12 @@ def main():
             ticket_details = "\n".join(
                 [f"- {format_ticket_count(c)} по {p} грн" for p, c in sorted(ticket_summary.items())]
             )
-            title_part = f'[{title}]({link}) *{event_date_str}*'
             tickets_msg = f'доступно місць {free_tickets}:\n{ticket_details}'
-            msg = f'{title_part} — {tickets_msg}\n'
         else:
-            title_part = f'[{title}]({link}) *{event_date_str}*'
             tickets_msg = 'всі квитки розпродані'
-            msg = f'{title_part} — {tickets_msg}.\n'
+        
+        title_part = f'[{title}]({link}) *{event_date_str}*'
+        msg = f'{title_part} — {tickets_msg}.\n'
 
         # Перевірка зміни
         prev_count = event_tickets_db.loc[db_index[link], "free_tickets"] if link in db_index else -1

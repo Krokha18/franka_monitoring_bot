@@ -2,8 +2,7 @@ import os
 import telebot
 import pandas as pd
 from dotenv import load_dotenv
-from io_utils import load_titles_df, save_titles_df
-
+from monitoring_service import add_title, remove_title, update_title, list_titles
 
 load_dotenv()
 monitoring_file = os.getenv("MONITORING_TITLES_FILE")
@@ -11,80 +10,78 @@ bot = telebot.TeleBot(os.getenv("TELEGRAM_BOT_TOKEN"))
 
 DATE_FMT = "%Y-%m-%d"
 
-def load_monitoring_df():
-    return load_titles_df(monitoring_file)
-
-def save_monitoring_df(df):
-    save_titles_df(df, monitoring_file)
-
+def parse_date(s):
+    return pd.to_datetime(s.strip(), format=DATE_FMT, errors='coerce')
 
 @bot.message_handler(commands=["add"])
-def add_title(message):
+def handle_add(message):
     args = message.text[len('/add'):].strip().split('|')
-    if len(args) < 1:
+    if len(args) < 1 or not args[0].strip():
         bot.reply_to(message, "❗ Формат: /add Назва | min_date | max_date (дати не обов'язкові)")
         return
 
     title = args[0].strip()
-    min_date = pd.to_datetime(args[1].strip(), format=DATE_FMT, errors='coerce') if len(args) > 1 else pd.NaT
-    max_date = pd.to_datetime(args[2].strip(), format=DATE_FMT, errors='coerce') if len(args) > 2 else pd.NaT
+    min_date = parse_date(args[1]) if len(args) > 1 else pd.NaT
+    max_date = parse_date(args[2]) if len(args) > 2 else pd.NaT
 
-    df = load_monitoring_df()
-
-    if title in df["title"].values:
+    if not add_title(monitoring_file, title, min_date, max_date):
         bot.reply_to(message, f"⚠️ '{title}' вже у списку. Видаліть перед додаванням заново або скористайтесь /update")
         return
 
-    new_row = pd.DataFrame([{"title": title, "min_date": min_date, "max_date": max_date}])
-    df = pd.concat([df, new_row], ignore_index=True)
-    save_monitoring_df(df)
-    bot.reply_to(message, f"✅ Додано: *{title}*\n🗓 {min_date.date() if pd.notna(min_date) else '---'} → {max_date.date() if pd.notna(max_date) else '---'}", parse_mode='Markdown')
+    bot.reply_to(
+        message,
+        f"✅ Додано: *{title}*\n🗓 {min_date.date() if pd.notna(min_date) else '---'} → {max_date.date() if pd.notna(max_date) else '---'}",
+        parse_mode='Markdown'
+    )
 
 @bot.message_handler(commands=["remove"])
-def remove_title(message):
+def handle_remove(message):
     title = message.text[len("/remove"):].strip()
-    df = load_monitoring_df()
-    if title not in df["title"].values:
+    if not title:
+        bot.reply_to(message, "❗ Формат: /remove Назва")
+        return
+
+    if not remove_title(monitoring_file, title):
         bot.reply_to(message, f"⚠️ Вистави *{title}* немає в списку", parse_mode='Markdown')
         return
-    df = df[df["title"] != title]
-    save_monitoring_df(df)
+
     bot.reply_to(message, f"➖ Видалено: *{title}*", parse_mode='Markdown')
 
 @bot.message_handler(commands=["list"])
-def list_titles(message):
-    df = load_monitoring_df()
+def handle_list(message):
+    df = list_titles(monitoring_file)
     if df.empty:
         bot.reply_to(message, "📭 Список моніторингу порожній")
         return
+
     lines = []
     for _, row in df.iterrows():
-        min_d = pd.to_datetime(row["min_date"], format="ISO8601").date() if pd.notna(row["min_date"]) else "---"
-        max_d = pd.to_datetime(row["max_date"], format="ISO8601").date() if pd.notna(row["max_date"]) else "---"
+        min_d = pd.to_datetime(row["min_date"]).date() if pd.notna(row["min_date"]) else "---"
+        max_d = pd.to_datetime(row["max_date"]).date() if pd.notna(row["max_date"]) else "---"
         lines.append(f"- *{row['title']}* ({min_d} → {max_d})")
+
     bot.reply_to(message, "🎭 Вистави у моніторингу:\n" + "\n".join(lines), parse_mode="Markdown")
 
 @bot.message_handler(commands=["update"])
-def update_title(message):
+def handle_update(message):
     args = message.text[len('/update'):].strip().split('|')
-    if len(args) < 2:
+    if len(args) < 2 or not args[0].strip():
         bot.reply_to(message, "❗ Формат: /update Назва | новий_min | новий_max")
         return
 
     title = args[0].strip()
-    min_date = pd.to_datetime(args[1].strip(), format=DATE_FMT, errors='coerce') if len(args) > 1 else pd.NaT
-    max_date = pd.to_datetime(args[2].strip(), format=DATE_FMT, errors='coerce') if len(args) > 2 else pd.NaT
+    min_date = parse_date(args[1]) if len(args) > 1 else pd.NaT
+    max_date = parse_date(args[2]) if len(args) > 2 else pd.NaT
 
-    df = load_monitoring_df()
-    if title not in df["title"].values:
+    if not update_title(monitoring_file, title, min_date, max_date):
         bot.reply_to(message, f"⚠️ Вистави *{title}* немає в списку", parse_mode='Markdown')
         return
 
-    df.loc[df["title"] == title, "min_date"] = min_date
-    df.loc[df["title"] == title, "max_date"] = max_date
-    save_monitoring_df(df)
-    bot.reply_to(message, f"🔁 Оновлено: *{title}*\n🗓 {min_date.date() if pd.notna(min_date) else '---'} → {max_date.date() if pd.notna(max_date) else '---'}", parse_mode='Markdown')
-
+    bot.reply_to(
+        message,
+        f"🔁 Оновлено: *{title}*\n🗓 {min_date.date() if pd.notna(min_date) else '---'} → {max_date.date() if pd.notna(max_date) else '---'}",
+        parse_mode='Markdown'
+    )
 
 if __name__ == "__main__":
     print("Bot commands listener started...")
