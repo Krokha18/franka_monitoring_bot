@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+import re
 import logging
 from datetime import datetime
 from selenium.webdriver.common.by import By
@@ -12,10 +13,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from webdriver_utils import init_webdriver
-driver, wait = init_webdriver()
+
+from general_utils import parse_event_date
 
 
-def get_max_pages():
+def get_max_pages(driver, wait):
     driver.get('https://sales.ft.org.ua/events')
     try:
         wait.until(EC.presence_of_element_located((By.CLASS_NAME, 'pagination__item')))
@@ -27,10 +29,9 @@ def get_max_pages():
     return 1
 
 
-def get_all_event_card(event_file=os.getenv("EVENT_CARD_FILE", 'all_event_card.csv')):
+def get_all_event_card(event_file, driver, wait):
     results_list = []
-    start_page, max_pages = 1, get_max_pages()
-    df = None
+    start_page, max_pages = 1, get_max_pages(driver, wait)
     for page in range(start_page, max_pages + 1):
         url = f'https://sales.ft.org.ua/events?page={page}'
         logging.info(f'Parsing page {page}')
@@ -46,7 +47,7 @@ def get_all_event_card(event_file=os.getenv("EVENT_CARD_FILE", 'all_event_card.c
 
         for card in cards:
             try:
-                title = card.find_element(By.CLASS_NAME, 'performanceCard__title').text.strip()
+                title = card.find_element(By.CLASS_NAME, 'performanceCard__title').text.strip().replace('’',"'")
                 date_time = card.find_element(By.CLASS_NAME, 'performanceCard__author').text
                 weekday, date = date_time.split(", ")
                 number, month, start_time = date.split(" ")
@@ -66,9 +67,14 @@ def get_all_event_card(event_file=os.getenv("EVENT_CARD_FILE", 'all_event_card.c
                 logging.warning(f"Помилка в читанні картки: {e}")
 
     updates_df = pd.DataFrame(results_list)
+    updates_df['datetime'] = updates_df.apply(parse_event_date, axis=1)
     updates_df.to_csv(event_file, index=False)
+    driver.quit()
     return updates_df
 
 
 if __name__ == "__main__":
-    get_all_event_card()
+    driver, wait = init_webdriver()
+    get_all_event_card(os.getenv("EVENT_CARD_FILE"), driver, wait)
+    driver.quit()
+
