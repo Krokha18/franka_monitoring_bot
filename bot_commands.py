@@ -17,7 +17,7 @@ def handle_add(message):
         bot.reply_to(message, "❗ Формат: /add Назва | min_date | max_date (дати не обов'язкові)")
         return
 
-    title = args[0].strip().replace('’',"'")
+    title = args[0].strip().replace('’',"'").upper()
     min_date = parse_date(args[1]) if len(args) > 1 else pd.NaT
     max_date = parse_date(args[2]) if len(args) > 2 else pd.NaT
     user_id = message.chat.id
@@ -35,7 +35,7 @@ def handle_add(message):
 
 @bot.message_handler(commands=["remove"])
 def handle_remove(message):
-    title = message.text[len("/remove"):].strip().replace('’',"'")
+    title = message.text[len("/remove"):].strip().replace('’',"'").upper()
     if not title:
         bot.reply_to(message, "❗ Формат: /remove Назва")
         return
@@ -66,7 +66,7 @@ def handle_update(message):
         bot.reply_to(message, "❗ Формат: /update Назва | новий_min | новий_max")
         return
 
-    title = args[0].strip().replace('’',"'")
+    title = args[0].strip().replace('’',"'").upper()
     min_date = parse_date(args[1]) if len(args) > 1 else pd.NaT
     max_date = parse_date(args[2]) if len(args) > 2 else pd.NaT
     user_id = message.chat.id
