@@ -1,6 +1,5 @@
 import pandas as pd
 import os
-import re
 import logging
 from datetime import datetime
 from selenium.webdriver.common.by import By
@@ -14,7 +13,7 @@ load_dotenv()
 
 from webdriver_utils import init_webdriver
 
-from general_utils import parse_event_date
+from general_utils import parse_event_date, normalize_month
 
 
 def get_max_pages(driver, wait):
@@ -51,18 +50,22 @@ def get_all_event_card(event_file, driver, wait):
                 date_time = card.find_element(By.CLASS_NAME, 'performanceCard__author').text
                 weekday, date = date_time.split(", ")
                 number, month, start_time = date.split(" ")
-                duration_min = int(card.find_element(By.CLASS_NAME, 'performanceCard__time-val').text)
-                link = card.get_attribute('href').strip()
-                results_list.append({
-                    "link": link,
-                    "title": title,
-                    "weekday": weekday,
-                    "number": int(number),
-                    "month": month,
-                    "start_time": start_time,
-                    "duration_min": duration_min,
-                    "parsed_at": datetime.now().isoformat()
-                })
+                dt_now = datetime.now()
+                hours, minutes = start_time.split(":")
+                start_dt = datetime(dt_now.year, int(normalize_month(month)), int(number), int(hours)-1, int(minutes))
+                if start_dt > dt_now:
+                    duration_min = int(card.find_element(By.CLASS_NAME, 'performanceCard__time-val').text)
+                    link = card.get_attribute('href').strip()
+                    results_list.append({
+                        "link": link,
+                        "title": title,
+                        "weekday": weekday,
+                        "number": int(number),
+                        "month": month,
+                        "start_time": start_time,
+                        "duration_min": duration_min,
+                        "parsed_at": datetime.now().isoformat()
+                    })
             except Exception as e:
                 logging.warning(f"Помилка в читанні картки: {e}")
 

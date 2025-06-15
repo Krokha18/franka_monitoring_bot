@@ -27,6 +27,8 @@ ENV DISPLAY=:99
 ENV CHROMIUM_BIN=/usr/bin/chromium
 ENV CHROMEDRIVER_BIN=/usr/bin/chromedriver
 
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
-# Default command
-CMD ["python", "franka_bot.py"]
+
+ENTRYPOINT ["/app/entrypoint.sh"]
